@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>全域理解 SCOPE</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(180deg, #dce7f2 0%, #cddaea 100%);
+            font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: #0f172a;
+        }
+
+        #chart-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            z-index: 200;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            color: #0f172a;
+            padding: 8px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        }
+
+        .toggle-btn:hover {
+            background: #eff6ff;
+            border-color: #60a5fa;
+            color: #1d4ed8;
+        }
+
+        #btn-toggle-desc {
+            top: 20px;
+            left: 20px;
+        }
+
+        #btn-toggle-legend {
+            top: 20px;
+            right: 20px;
+        }
+
+        .z-axis-label-container {
+            position: absolute;
+            left: 20px;
+            top: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            pointer-events: none;
+            z-index: 10;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform-origin: top left;
+        }
+
+        .z-title {
+            font-size: 30px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            color: #0f172a;
+            letter-spacing: 0.4px;
+        }
+
+        .z-subtitle {
+            font-size: 13px;
+            color: #475569;
+            margin-bottom: 12px;
+        }
+
+        .z-desc {
+            font-size: 13px;
+            color: #334155;
+            max-width: 340px;
+            line-height: 1.7;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 16px 18px;
+            border-radius: 12px;
+            border-left: 5px solid #2563eb;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        .panel-container {
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            z-index: 100;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform-origin: top right;
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.96);
+            padding: 18px;
+            border-radius: 12px;
+            color: #0f172a;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            width: 240px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        .legend-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #334155;
+        }
+
+        .color-block {
+            width: 12px;
+            height: 12px;
+            margin-right: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-10px) scale(0.95);
+        }
+    </style>
+
+    <script src="https://unpkg.com/echarts@5.4.3/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/echarts-gl@2.0.9/dist/echarts-gl.min.js"></script>
+</head>
+<body>
+
+    <button id="btn-toggle-desc" class="toggle-btn" onclick="toggleVisibility('desc-panel')">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"></path>
+            <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"></path>
+        </svg>
+        说明
+    </button>
+
+    <button id="btn-toggle-legend" class="toggle-btn" onclick="toggleVisibility('legend-panel')">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"></path>
+        </svg>
+        图例
+    </button>
+
+    <div id="desc-panel" class="z-axis-label-container">
+        <div class="z-title">全域理解 SCOPE</div>
+        <div class="z-subtitle">浅背景 + 深底板，适合 Slides 展示</div>
+        <div class="z-desc">
+            <strong>高度含义：</strong> 当前可分析粒度的精细程度与商业价值。<br />
+            <strong>颜色含义：</strong> 行业覆盖度范围。<br />
+            <strong>底面含义：</strong> 内容题材 × 图谱节点的能力分布矩阵。<br />
+            <strong>展示重点：</strong> 强化三维坐标结构，让底板承托整体画面。
+        </div>
+    </div>
+
+    <div id="legend-panel" class="panel-container">
+        <div class="control-panel">
+            <h1 style="margin:0 0 15px 0;font-size:14px;border-bottom:1px solid rgba(148,163,184,0.25);padding-bottom:10px;color:#334155;">
+                颜色：行业覆盖度
+            </h1>
+            <div id="legend-content"></div>
+        </div>
+    </div>
+
+    <div id="chart-container"></div>
+
+    <script>
+        function toggleVisibility(elementId) {
+            var el = document.getElementById(elementId);
+            el.classList.toggle("hidden");
+        }
+
+        var dom = document.getElementById("chart-container");
+        var myChart = echarts.init(dom);
+
+        var contentTypes = ["稿件", "弹幕", "评论", "搜索", "动态", "图文", "话题", "蓝链", "私信", "简介", "素材"];
+        var graphElements = ["行业", "类目", "品牌", "IP", "产品", "属性", "视觉", "UP主", "用户"];
+        var emotionLevels = ["相关提及", "褒贬情感", "显性情绪", "潜在动机", "购买意向"];
+
+        var coverageLevels = [
+            { name: "潜在/空置节点", color: "rgba(148,163,184,0.18)" },
+            { name: "覆盖个别行业", color: "#94a3b8" },
+            { name: "覆盖全部P0行业", color: "#2563eb" },
+            { name: "覆盖P0+P1行业", color: "#7c3aed" },
+            { name: "覆盖P0+P1+P2行业", color: "#ea580c" }
+        ];
+
+        var legendHtml = "";
+        for (var i = coverageLevels.length - 1; i >= 1; i--) {
+            legendHtml += '<div class="legend-row"><div class="color-block" style="background:' + coverageLevels[i].color + ';"></div>' + coverageLevels[i].name + "</div>";
+        }
+        document.getElementById("legend-content").innerHTML = legendHtml;
+
+        function isValidData(cType, gElement, eLevel) {
+            if (cType === "简介" && gElement !== "UP主") return false;
+            if (cType === "蓝链" && eLevel === "情感") return false;
+            if (["动态", "直播", "图文", "话题"].includes(cType) && eLevel === "意向") return false;
+            if (cType === "素材" && ["UP主", "用户"].includes(gElement)) return false;
+            return true;
+        }
+
+        var barSeriesData = [];
+        var maxDistance = (contentTypes.length - 1) + (graphElements.length - 1) + (emotionLevels.length - 1);
+
+        for (var i = 0; i < contentTypes.length; i++) {
+            for (var j = 0; j < graphElements.length; j++) {
+                for (var k = 0; k < emotionLevels.length; k++) {
+                    var currentDist = i + j + k;
+                    var ratio = 1 - (currentDist / maxDistance);
+                    ratio = Math.pow(ratio, 1.2);
+                    var heightScore = Math.max(2, Math.floor(100 * ratio));
+
+                    var isActive = true;
+                    if (!isValidData(contentTypes[i], graphElements[j], emotionLevels[k])) isActive = false;
+                    if (Math.random() > 0.2) isActive = false;
+
+                    var coverageType = 0;
+                    var finalHeight = 2;
+
+                    if (isActive) {
+                        var rand = Math.random();
+                        if (rand > 0.9) coverageType = 4;
+                        else if (rand > 0.7) coverageType = 3;
+                        else if (rand > 0.4) coverageType = 2;
+                        else coverageType = 1;
+                        finalHeight = heightScore;
+                    } else {
+                        finalHeight = 1;
+                    }
+
+                    barSeriesData.push({
+                        value: [i, j, k, finalHeight, coverageType]
+                    });
+                }
+            }
+        }
+
+        var commonAxisLabel = {
+            color: "#1e293b",
+            fontSize: 12,
+            interval: 0,
+            margin: 10
+        };
+
+        var commonNameTextStyle = {
+            color: "#0f172a",
+            fontSize: 15,
+            fontWeight: "bold"
+        };
+
+        var commonAxisConfig = {
+            nameGap: 34,
+            nameTextStyle: commonNameTextStyle,
+            axisLabel: commonAxisLabel,
+            boundaryGap: true,
+            axisTick: {
+                show: false,
+                alignWithLabel: true
+            },
+            splitLine: {
+                show: true,
+                lineStyle: {
+                    color: "rgba(255, 255, 255, 0.24)",
+                    width: 1
+                }
+            },
+            splitArea: {
+                show: true,
+                areaStyle: {
+                    color: [
+                        "rgba(30, 41, 59, 0.12)",
+                        "rgba(15, 23, 42, 0.22)"
+                    ]
+                }
+            }
+        };
+
+        var option = {
+            tooltip: {
+                show: true,
+                backgroundColor: "rgba(255,255,255,0.96)",
+                borderColor: "rgba(148,163,184,0.3)",
+                borderWidth: 1,
+                textStyle: {
+                    color: "#0f172a"
+                },
+                formatter: function(params) {
+                    var val = params.value;
+                    var cType = coverageLevels[val[4]];
+                    if (val[4] === 0) return "";
+                    return `
+                        <div style="font-weight:700;margin-bottom:6px;color:#0f172a;">${contentTypes[val[0]]} - ${graphElements[val[1]]}</div>
+                        <div style="color:#334155;">分析粒度：${emotionLevels[val[2]]}</div>
+                        <div style="color:#334155;">能力高度：${val[3]}</div>
+                        <div style="color:${cType.color}; margin-top:6px; font-weight:600;">● ${cType.name}</div>
+                    `;
+                }
+            },
+            visualMap: {
+                show: false,
+                type: "piecewise",
+                dimension: 4,
+                categories: [0, 1, 2, 3, 4],
+                inRange: {
+                    color: coverageLevels.map(function(item) { return item.color; })
+                }
+            },
+            xAxis3D: {
+                type: "category",
+                data: contentTypes,
+                name: "内容题材",
+                ...commonAxisConfig,
+                axisLine: {
+                    lineStyle: {
+                        color: "#2563eb",
+                        width: 2.4
+                    }
+                },
+                axisLabel: {
+                    ...commonAxisLabel,
+                    color: "#1d4ed8",
+                    rotate: -28
+                },
+                nameTextStyle: {
+                    ...commonNameTextStyle,
+                    color: "#1d4ed8"
+                }
+            },
+            yAxis3D: {
+                type: "category",
+                data: graphElements,
+                name: "图谱节点",
+                ...commonAxisConfig,
+                axisLine: {
+                    lineStyle: {
+                        color: "#7c3aed",
+                        width: 2.4
+                    }
+                },
+                axisLabel: {
+                    ...commonAxisLabel,
+                    color: "#6d28d9"
+                },
+                nameTextStyle: {
+                    ...commonNameTextStyle,
+                    color: "#6d28d9"
+                }
+            },
+            zAxis3D: {
+                type: "category",
+                data: emotionLevels,
+                name: "心智层级",
+                ...commonAxisConfig,
+                axisLine: {
+                    lineStyle: {
+                        color: "#ea580c",
+                        width: 2.4
+                    }
+                },
+                axisLabel: {
+                    ...commonAxisLabel,
+                    color: "#c2410c",
+                    fontWeight: "600"
+                },
+                nameTextStyle: {
+                    ...commonNameTextStyle,
+                    color: "#c2410c"
+                },
+                splitLine: {
+                    show: false
+                }
+            },
+            grid3D: {
+                boxWidth: 122,
+                boxDepth: 102,
+                boxHeight: 60,
+                axisLine: {
+                    lineStyle: {
+                        color: "#334155",
+                        width: 2
+                    }
+                },
+                viewControl: {
+                    autoRotate: false,
+                    projection: "perspective",
+                    distance: 210,
+                    alpha: 22,
+                    beta: 38,
+                    minDistance: 180,
+                    maxDistance: 260
+                },
+                light: {
+                    main: {
+                        intensity: 1.05,
+                        shadow: false,
+                        alpha: 35,
+                        beta: -20
+                    },
+                    ambient: {
+                        intensity: 0.95
+                    }
+                }
+            },
+            series: [
+                {
+                    type: "bar3D",
+                    data: barSeriesData,
+                    shading: "lambert",
+                    barSize: 0,
+                    bevelSize: 0,
+                    label: {
+                        show: false
+                    },
+                    itemStyle: {
+                        opacity: 0
+                    }
+                }
+            ]
+        };
+
+        myChart.setOption(option);
+
+        window.addEventListener("resize", function() {
+            myChart.resize();
+        });
+    </script>
+</body>
+</html>
